@@ -1,0 +1,9 @@
+{
+  "whisperBinary": "whisper-cli",
+  "whisperModelPath": "",
+  "whisperLanguage": "ko",
+  "geminiApiKey": "",
+  "geminiModel": "gemini-3-flash-preview",
+  "notionToken": "",
+  "notionDatabaseId": ""
+}

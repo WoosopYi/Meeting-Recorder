@@ -1,0 +1,1 @@
+brew "whisper-cpp"

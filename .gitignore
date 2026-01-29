@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# SwiftPM / Xcode
+/.build/
+/.swiftpm/
+/*.xcodeproj/
+/*.xcworkspace/
+xcuserdata/
+DerivedData/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+# Secrets / local config
+.env
+.env.*
+.netrc
+
+# Large model files (do not commit)
+*.bin
+/models/
+/Sources/model/
+
+# Local outputs (optional; outside repo by default)
+/dist/
