@@ -13,6 +13,8 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
     private var session: RecordingSession?
     private var eventLogger: EventLogger?
 
+    private var notesWindowController: NotesReviewWindowController?
+
     private var config: AppConfig = ConfigStore.load()
 
     private let notifier = LocalNotifier()
@@ -31,17 +33,30 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] note in
-            guard let self else { return }
-            if let error = note.userInfo?["error"] as? String {
-                Task { @MainActor in
+            Task { @MainActor in
+                guard let self else { return }
+
+                if let error = note.userInfo?["error"] as? String {
                     await self.notifier.notify(title: "MeetingVault", body: error)
+                    self.processLastMeetingItem.isEnabled = (self.session != nil)
+                    return
                 }
-                return
-            }
-            if let pageId = note.userInfo?["pageId"] as? String {
-                Task { @MainActor in
-                    await self.notifier.notify(title: "MeetingVault", body: "Exported to Notion: \(pageId)")
+
+                guard let markdownPath = note.userInfo?["notes_markdown_path"] as? String,
+                      let notesFolderPath = note.userInfo?["notes_folder_path"] as? String else {
+                    await self.notifier.notify(title: "MeetingVault", body: "Processing complete")
+                    self.processLastMeetingItem.isEnabled = (self.session != nil)
+                    return
                 }
+
+                let markdownURL = URL(fileURLWithPath: markdownPath)
+                let notesFolderURL = URL(fileURLWithPath: notesFolderPath, isDirectory: true)
+                let jsonURL = (note.userInfo?["notes_json_path"] as? String).map { URL(fileURLWithPath: $0) }
+
+                let markdown = (try? String(contentsOf: markdownURL, encoding: .utf8)) ?? ""
+
+                self.presentNotesWindow(markdown: markdown, notesFolderURL: notesFolderURL, jsonURL: jsonURL)
+                self.processLastMeetingItem.isEnabled = (self.session != nil)
             }
         }
 
@@ -96,7 +111,7 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
         menu.addItem(openLastFolderItem)
 
         processLastMeetingItem = NSMenuItem(
-            title: "Process Last Meeting (Transcript + Gemini + Notion)",
+            title: "Process Last Meeting (Transcript + Gemini)",
             action: #selector(processLastMeeting),
             keyEquivalent: ""
         )
@@ -237,16 +252,19 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
                     await logger.log(EventLogger.info("pipeline_started"))
                 }
 
-                let result = try await MeetingPipeline.process(session: session, config: config)
+                _ = try await MeetingPipeline.process(session: session, config: config)
                 if let logger {
-                    await logger.log(EventLogger.info("pipeline_finished", [
-                        "notion_page_id": result.notionPageId
-                    ]))
+                    await logger.log(EventLogger.info("pipeline_finished"))
                 }
                 NotificationCenter.default.post(
                     name: .meetingVaultPipelineFinished,
                     object: nil,
-                    userInfo: ["pageId": result.notionPageId]
+                    userInfo: [
+                        "meeting_id": session.meetingId,
+                        "notes_folder_path": session.notesRoot.path,
+                        "notes_json_path": session.notesJSON.path,
+                        "notes_markdown_path": session.notesMarkdown.path,
+                    ]
                 )
             } catch {
                 if let logger {
@@ -261,6 +279,21 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
                 )
             }
         }
+    }
+
+    private func presentNotesWindow(markdown: String, notesFolderURL: URL, jsonURL: URL?) {
+        let title = "MeetingVault — Notes"
+        let controller = NotesReviewWindowController(
+            title: title,
+            markdown: markdown,
+            notesFolderURL: notesFolderURL,
+            jsonURL: jsonURL
+        )
+        self.notesWindowController = controller
+
+        NSApp.activate(ignoringOtherApps: true)
+        controller.showWindow(nil)
+        controller.window?.makeKeyAndOrderFront(nil)
     }
 }
 

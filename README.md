@@ -5,7 +5,7 @@ Local-first macOS menubar recorder that can:
 - Record microphone audio (mic-only)
 - Transcribe locally using `whisper-cli` (whisper.cpp)
 - Summarize using Gemini (`gemini-3-flash-preview`)
-- Export structured notes to Notion
+- Generate copy-friendly notes (JSON + Markdown)
 
 This repo does NOT include Whisper model files (they are large). You download them locally.
 
@@ -59,6 +59,8 @@ swift run meeting-vault-app
 
 You should see `MV` in the macOS menu bar.
 
+After recording, click `Process Last Meeting` to generate notes. A small review window will open so you can copy the output.
+
 ## Run Without Terminal (Build a .app)
 
 If you want to launch it like a normal macOS app (double-click), build an app bundle:
@@ -79,7 +81,6 @@ See `docs/CONFIG.md`.
 
 ## Notes
 
-- Notion permissions: your Notion Integration must be shared into the target database, otherwise you will get `403 restricted_resource`.
 - When running via `swift run`, this app is not a full `.app` bundle. Some macOS APIs behave differently in that mode.
 
 ## License

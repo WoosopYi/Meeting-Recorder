@@ -57,6 +57,6 @@ print(config_path)
 PY
 
 echo "Created config: $CONFIG_PATH"
-echo "Edit it to add Gemini/Notion keys."
+echo "Edit it to add Gemini API key."
 
 open "$CONFIG_PATH" || true

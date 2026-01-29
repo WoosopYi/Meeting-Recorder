@@ -30,13 +30,10 @@ Create it with:
 - `geminiModel` (string, optional)
   - Default: `gemini-3-flash-preview`
 
-### Notion (export)
+### Notion
 
-- `notionToken` (string, required for export)
-  - Notion internal integration token usually starts with `ntn_...`
-
-- `notionDatabaseId` (string, required for export)
-  - The database id you want to create pages in
+MeetingVault does not call the Notion API.
+Copy the generated Markdown notes into Notion manually.
 
 ## Example
 

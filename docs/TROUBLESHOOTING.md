@@ -5,16 +5,6 @@
 - `meeting-vault-app` is a menu bar app (no window by default).
 - Run it and look for `MV` in the macOS menu bar.
 
-## Notion 403 restricted_resource
-
-Your Integration token exists, but it does not have access to the database.
-
-Fix:
-
-1. Open the target Notion database
-2. Click `Share`
-3. Invite your Integration and give it edit access
-
 ## Whisper errors
 
 ### whisper-cli not found

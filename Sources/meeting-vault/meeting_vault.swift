@@ -21,9 +21,6 @@ struct MeetingVaultCLI {
             case "summarize":
                 let options = try SummarizeOptions.parse(Array(args.dropFirst()))
                 try await Self.runSummarize(options)
-            case "export-notion":
-                let options = try ExportNotionOptions.parse(Array(args.dropFirst()))
-                try await Self.runExportNotion(options)
             default:
                 Self.printUsage()
             }
@@ -48,7 +45,6 @@ struct MeetingVaultCLI {
 
               meeting-vault summarize --transcript PATH [--out PATH]
 
-              meeting-vault export-notion --notes PATH [--title TEXT]
 
             Notes:
               - This is an early dev CLI to validate mic-only recording.
@@ -178,7 +174,7 @@ struct MeetingVaultCLI {
         let client = GeminiClient(apiKey: apiKey, model: model)
         let raw = try await client.generateText(prompt: prompt)
 
-        guard let jsonString = Self.extractFirstJSON(from: raw) else {
+        guard let jsonString = JSONExtractor.extractFirstJSONObject(from: raw) else {
             throw CLIError.invalidArguments("Gemini did not return JSON")
         }
 
@@ -198,39 +194,6 @@ struct MeetingVaultCLI {
         }
     }
 
-    private static func runExportNotion(_ options: ExportNotionOptions) async throws {
-        let token =
-            ProcessInfo.processInfo.environment["MEETINGVAULT_NOTION_TOKEN"]
-            ?? ProcessInfo.processInfo.environment["NOTION_TOKEN"]
-            ?? ""
-        let databaseId =
-            ProcessInfo.processInfo.environment["MEETINGVAULT_NOTION_DATABASE_ID"]
-            ?? ProcessInfo.processInfo.environment["NOTION_DATABASE_ID"]
-            ?? ""
-
-        guard !databaseId.isEmpty else {
-            throw CLIError.invalidArguments("Missing MEETINGVAULT_NOTION_DATABASE_ID")
-        }
-
-        let notesData = try Data(contentsOf: options.notesPath)
-        let decoder = JSONDecoder()
-        let notes = try decoder.decode(MeetingNotes.self, from: notesData)
-
-        let title = options.titleOverride
-            ?? notes.title
-            ?? "Meeting Notes"
-
-        let client = NotionClient(token: token)
-        let pageId = try await client.createMeetingPage(databaseId: databaseId, title: title, notes: notes)
-        print(pageId)
-    }
-
-    private static func extractFirstJSON(from text: String) -> String? {
-        guard let start = text.firstIndex(of: "{") else { return nil }
-        guard let end = text.lastIndex(of: "}") else { return nil }
-        guard start < end else { return nil }
-        return String(text[start...end])
-    }
 }
 
 struct RecordOptions {
@@ -367,40 +330,6 @@ struct SummarizeOptions {
         }
 
         return SummarizeOptions(transcriptPath: transcript, outPath: out)
-    }
-}
-
-struct ExportNotionOptions {
-    var notesPath: URL
-    var titleOverride: String?
-
-    static func parse(_ args: [String]) throws -> ExportNotionOptions {
-        var notes: URL?
-        var title: String?
-
-        var i = 0
-        while i < args.count {
-            let arg = args[i]
-            switch arg {
-            case "--notes":
-                i += 1
-                guard i < args.count else { throw CLIError.invalidArguments("--notes requires a path") }
-                notes = URL(fileURLWithPath: args[i])
-            case "--title":
-                i += 1
-                guard i < args.count else { throw CLIError.invalidArguments("--title requires text") }
-                title = args[i]
-            default:
-                throw CLIError.invalidArguments("Unknown argument: \(arg)")
-            }
-            i += 1
-        }
-
-        guard let notes else {
-            throw CLIError.invalidArguments("Missing --notes")
-        }
-
-        return ExportNotionOptions(notesPath: notes, titleOverride: title)
     }
 }
 

@@ -17,7 +17,6 @@ public enum MeetingPipelineError: LocalizedError {
 public struct MeetingPipelineResult: Sendable {
     public let transcript: Transcript
     public let notes: MeetingNotes
-    public let notionPageId: String
 }
 
 public enum MeetingPipeline {
@@ -50,10 +49,11 @@ public enum MeetingPipeline {
         }
         let geminiModel = (config.geminiModel?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "gemini-3-flash-preview"
 
-        let prompt = MeetingNotesPrompts.summarizePrompt(transcript: transcript.text)
+        let promptTranscript = Self.formatTranscriptForPrompt(transcript)
+        let prompt = MeetingNotesPrompts.summarizePrompt(transcript: promptTranscript)
         let raw = try await GeminiClient(apiKey: geminiKey, model: geminiModel).generateText(prompt: prompt)
 
-        guard let jsonString = extractFirstJSON(from: raw) else {
+        guard let jsonString = JSONExtractor.extractFirstJSONObject(from: raw) else {
             throw MeetingPipelineError.geminiReturnedNoJSON
         }
         let notes = try JSONDecoder().decode(MeetingNotes.self, from: Data(jsonString.utf8))
@@ -64,22 +64,10 @@ public enum MeetingPipeline {
         let notesData = try encoder.encode(notes)
         try notesData.write(to: session.notesJSON, options: [.atomic])
 
-        let notionToken = config.notionToken?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let notionDb = config.notionDatabaseId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !notionToken.isEmpty else {
-            throw MeetingPipelineError.missingConfig("Missing config.notionToken")
-        }
-        guard !notionDb.isEmpty else {
-            throw MeetingPipelineError.missingConfig("Missing config.notionDatabaseId")
-        }
+        let markdown = MeetingNotesMarkdown.render(meetingId: session.meetingId, notes: notes)
+        try markdown.write(to: session.notesMarkdown, atomically: true, encoding: .utf8)
 
-        let title = notes.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let pageTitle = (title?.isEmpty == false) ? title! : "Meeting Notes"
-
-        let notion = NotionClient(token: notionToken)
-        let pageId = try await notion.createMeetingPage(databaseId: notionDb, title: pageTitle, notes: notes)
-
-        return MeetingPipelineResult(transcript: transcript, notes: notes, notionPageId: pageId)
+        return MeetingPipelineResult(transcript: transcript, notes: notes)
     }
 
     private static func runBlocking<T>(_ work: @Sendable @escaping () throws -> T) async throws -> T {
@@ -94,10 +82,27 @@ public enum MeetingPipeline {
         }
     }
 
-    private static func extractFirstJSON(from text: String) -> String? {
-        guard let start = text.firstIndex(of: "{") else { return nil }
-        guard let end = text.lastIndex(of: "}") else { return nil }
-        guard start < end else { return nil }
-        return String(text[start...end])
+    private static func formatTranscriptForPrompt(_ transcript: Transcript) -> String {
+        transcript.segments
+            .enumerated()
+            .map { index, segment in
+                let start = formatTimestampMs(segment.startMs)
+                let end = formatTimestampMs(segment.endMs)
+                let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                return "[\(start)-\(end)] \(text)"
+            }
+            .joined(separator: "\n")
+    }
+
+    private static func formatTimestampMs(_ ms: Int) -> String {
+        let clamped = max(0, ms)
+        let totalSeconds = clamped / 1000
+        let milliseconds = clamped % 1000
+
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+
+        return String(format: "%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
     }
 }

@@ -3,7 +3,5 @@
   "whisperModelPath": "",
   "whisperLanguage": "ko",
   "geminiApiKey": "",
-  "geminiModel": "gemini-3-flash-preview",
-  "notionToken": "",
-  "notionDatabaseId": ""
+  "geminiModel": "gemini-3-flash-preview"
 }

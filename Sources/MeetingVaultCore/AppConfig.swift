@@ -8,25 +8,18 @@ public struct AppConfig: Codable, Sendable {
     public var geminiApiKey: String?
     public var geminiModel: String?
 
-    public var notionToken: String?
-    public var notionDatabaseId: String?
-
     public init(
         whisperBinary: String? = nil,
         whisperModelPath: String? = nil,
         whisperLanguage: String? = nil,
         geminiApiKey: String? = nil,
-        geminiModel: String? = nil,
-        notionToken: String? = nil,
-        notionDatabaseId: String? = nil
+        geminiModel: String? = nil
     ) {
         self.whisperBinary = whisperBinary
         self.whisperModelPath = whisperModelPath
         self.whisperLanguage = whisperLanguage
         self.geminiApiKey = geminiApiKey
         self.geminiModel = geminiModel
-        self.notionToken = notionToken
-        self.notionDatabaseId = notionDatabaseId
     }
 }
 

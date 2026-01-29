@@ -15,6 +15,7 @@ public struct RecordingSession: Sendable {
     public let transcriptSegments: URL
     public let notesRoot: URL
     public let notesJSON: URL
+    public let notesMarkdown: URL
 
     public static func create(baseOutput: String?) throws -> RecordingSession {
         let meetingId = UUID().uuidString
@@ -42,6 +43,7 @@ public struct RecordingSession: Sendable {
 
         let notesRoot = root.appendingPathComponent("notes", isDirectory: true)
         let notesJSON = notesRoot.appendingPathComponent("meeting_notes.json")
+        let notesMarkdown = notesRoot.appendingPathComponent("meeting_notes.md")
 
         try FileManager.default.createDirectory(at: audioChunks, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: eventsRoot, withIntermediateDirectories: true)
@@ -59,7 +61,8 @@ public struct RecordingSession: Sendable {
             transcriptText: transcriptText,
             transcriptSegments: transcriptSegments,
             notesRoot: notesRoot,
-            notesJSON: notesJSON
+            notesJSON: notesJSON,
+            notesMarkdown: notesMarkdown
         )
     }
 

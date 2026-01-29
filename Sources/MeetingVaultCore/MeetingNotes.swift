@@ -14,7 +14,7 @@ public struct MeetingNotes: Codable, Sendable {
     }
 
     public let title: String?
-    public let summary: String
+    public let summary: [String]
     public let decisions: [String]
     public let actionItems: [ActionItem]
     public let openQuestions: [String]
@@ -22,7 +22,7 @@ public struct MeetingNotes: Codable, Sendable {
 
     public init(
         title: String? = nil,
-        summary: String,
+        summary: [String] = [],
         decisions: [String] = [],
         actionItems: [ActionItem] = [],
         openQuestions: [String] = [],
