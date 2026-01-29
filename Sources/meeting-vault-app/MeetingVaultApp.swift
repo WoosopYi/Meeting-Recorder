@@ -33,31 +33,29 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] note in
-            Task { @MainActor in
-                guard let self else { return }
+            guard let self else { return }
 
-                if let error = note.userInfo?["error"] as? String {
-                    await self.notifier.notify(title: "MeetingVault", body: error)
-                    self.processLastMeetingItem.isEnabled = (self.session != nil)
-                    return
-                }
-
-                guard let markdownPath = note.userInfo?["notes_markdown_path"] as? String,
-                      let notesFolderPath = note.userInfo?["notes_folder_path"] as? String else {
-                    await self.notifier.notify(title: "MeetingVault", body: "Processing complete")
-                    self.processLastMeetingItem.isEnabled = (self.session != nil)
-                    return
-                }
-
-                let markdownURL = URL(fileURLWithPath: markdownPath)
-                let notesFolderURL = URL(fileURLWithPath: notesFolderPath, isDirectory: true)
-                let jsonURL = (note.userInfo?["notes_json_path"] as? String).map { URL(fileURLWithPath: $0) }
-
-                let markdown = (try? String(contentsOf: markdownURL, encoding: .utf8)) ?? ""
-
-                self.presentNotesWindow(markdown: markdown, notesFolderURL: notesFolderURL, jsonURL: jsonURL)
+            if let error = note.userInfo?["error"] as? String {
+                self.notifier.notify(title: "MeetingVault", body: error)
                 self.processLastMeetingItem.isEnabled = (self.session != nil)
+                return
             }
+
+            guard let markdownPath = note.userInfo?["notes_markdown_path"] as? String,
+                  let notesFolderPath = note.userInfo?["notes_folder_path"] as? String else {
+                self.notifier.notify(title: "MeetingVault", body: "Processing complete")
+                self.processLastMeetingItem.isEnabled = (self.session != nil)
+                return
+            }
+
+            let markdownURL = URL(fileURLWithPath: markdownPath)
+            let notesFolderURL = URL(fileURLWithPath: notesFolderPath, isDirectory: true)
+            let jsonURL = (note.userInfo?["notes_json_path"] as? String).map { URL(fileURLWithPath: $0) }
+
+            let markdown = (try? String(contentsOf: markdownURL, encoding: .utf8)) ?? ""
+
+            self.presentNotesWindow(markdown: markdown, notesFolderURL: notesFolderURL, jsonURL: jsonURL)
+            self.processLastMeetingItem.isEnabled = (self.session != nil)
         }
 
         do {
@@ -148,7 +146,7 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             let granted = await MicrophonePermission.requestIfNeeded()
             guard granted else {
-                await notifier.notify(title: "MeetingVault", body: "Microphone permission denied")
+                notifier.notify(title: "MeetingVault", body: "Microphone permission denied")
                 return
             }
 
@@ -180,7 +178,7 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
                         await eventLogger.log(EventLogger.warn(issue.kind.rawValue, [
                             "message": issue.message
                         ]))
-                        await self.notifier.notify(
+                        self.notifier.notify(
                             title: "MeetingVault recording issue",
                             body: issue.message
                         )
@@ -194,7 +192,7 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
                 processLastMeetingItem.isEnabled = false
             } catch {
                 sleepInhibitor.stop()
-                await notifier.notify(title: "MeetingVault", body: "Failed to start recording: \(error)")
+                notifier.notify(title: "MeetingVault", body: "Failed to start recording: \(error)")
             }
         }
     }
@@ -301,9 +299,8 @@ extension Notification.Name {
     static let meetingVaultPipelineFinished = Notification.Name("meetingVault.pipelineFinished")
 }
 
-@MainActor
 final class LocalNotifier {
-    func notify(title: String, body: String) async {
+    func notify(title: String, body: String) {
         // When running via `swift run` we don't have a real .app bundle, and
         // UNUserNotificationCenter can crash. Use AppleScript notifications.
         let safeTitle = title.replacingOccurrences(of: "\"", with: "\\\"")
