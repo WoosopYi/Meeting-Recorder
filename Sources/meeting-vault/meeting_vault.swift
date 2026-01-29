@@ -418,7 +418,6 @@ enum CLIError: LocalizedError {
     }
 }
 
-@MainActor
 final class LocalNotifier {
     func notify(title: String, body: String) async {
         // Best-effort notification when running as a SwiftPM executable.
