@@ -59,6 +59,20 @@ swift run meeting-vault-app
 
 You should see `MV` in the macOS menu bar.
 
+## Run Without Terminal (Build a .app)
+
+If you want to launch it like a normal macOS app (double-click), build an app bundle:
+
+```bash
+make app
+```
+
+It creates:
+
+`./dist/MeetingRecorder.app`
+
+You can move it to `/Applications` and run it without Terminal.
+
 ## Config
 
 See `docs/CONFIG.md`.

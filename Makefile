@@ -1,4 +1,5 @@
 .PHONY: setup deps build build-release run-app run-cli
+.PHONY: app
 
 deps:
 	@if command -v brew >/dev/null 2>&1; then \
@@ -17,6 +18,9 @@ build:
 
 build-release:
 	swift build -c release
+
+app:
+	./scripts/package-app.sh
 
 run-app:
 	swift run meeting-vault-app
