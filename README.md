@@ -12,7 +12,7 @@ This repo does NOT include Whisper model files (they are large). You download th
 ## Requirements
 
 - macOS 14+
-- Swift 6.2+ (Command Line Tools is fine)
+- Swift 5.9+ (Command Line Tools or Xcode)
 - Homebrew (recommended)
 
 ## Quickstart
