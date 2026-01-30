@@ -18,11 +18,16 @@ final class NotesReviewWindowController: NSWindowController {
         )
         window.title = title
         window.isReleasedWhenClosed = false
+        window.collectionBehavior = [.moveToActiveSpace]
 
         super.init(window: window)
 
         setupUI(markdown: markdown)
         window.center()
+    }
+
+    func setMarkdown(_ markdown: String) {
+        textView.string = markdown
     }
 
     @available(*, unavailable)

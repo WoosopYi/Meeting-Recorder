@@ -28,36 +28,6 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
 
         ensureConfigFileExistsAndPrintLocation()
 
-        NotificationCenter.default.addObserver(
-            forName: .meetingVaultPipelineFinished,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            guard let self else { return }
-
-            if let error = note.userInfo?["error"] as? String {
-                self.notifier.notify(title: "MeetingVault", body: error)
-                self.processLastMeetingItem.isEnabled = (self.session != nil)
-                return
-            }
-
-            guard let markdownPath = note.userInfo?["notes_markdown_path"] as? String,
-                  let notesFolderPath = note.userInfo?["notes_folder_path"] as? String else {
-                self.notifier.notify(title: "MeetingVault", body: "Processing complete")
-                self.processLastMeetingItem.isEnabled = (self.session != nil)
-                return
-            }
-
-            let markdownURL = URL(fileURLWithPath: markdownPath)
-            let notesFolderURL = URL(fileURLWithPath: notesFolderPath, isDirectory: true)
-            let jsonURL = (note.userInfo?["notes_json_path"] as? String).map { URL(fileURLWithPath: $0) }
-
-            let markdown = (try? String(contentsOf: markdownURL, encoding: .utf8)) ?? ""
-
-            self.presentNotesWindow(markdown: markdown, notesFolderURL: notesFolderURL, jsonURL: jsonURL)
-            self.processLastMeetingItem.isEnabled = (self.session != nil)
-        }
-
         do {
             try hotKeys.registerToggleRecording { [weak self] in
                 Task { @MainActor in
@@ -244,7 +214,21 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
 
         processLastMeetingItem.isEnabled = false
 
-        Task.detached {
+        // Show a window immediately so the user sees progress.
+        let placeholder = """
+# Generating Notes
+
+Meeting ID: \(session.meetingId)
+
+- Transcribing (Whisper)
+- Summarizing (Gemini)
+- Writing notes (JSON + Markdown)
+
+This can take a few minutes depending on model size.
+"""
+        presentNotesWindow(markdown: placeholder, notesFolderURL: session.notesRoot, jsonURL: session.notesJSON)
+
+        Task.detached { [session, config, logger] in
             do {
                 if let logger {
                     await logger.log(EventLogger.info("pipeline_started"))
@@ -254,27 +238,45 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
                 if let logger {
                     await logger.log(EventLogger.info("pipeline_finished"))
                 }
-                NotificationCenter.default.post(
-                    name: .meetingVaultPipelineFinished,
-                    object: nil,
-                    userInfo: [
-                        "meeting_id": session.meetingId,
-                        "notes_folder_path": session.notesRoot.path,
-                        "notes_json_path": session.notesJSON.path,
-                        "notes_markdown_path": session.notesMarkdown.path,
-                    ]
-                )
+
+                let markdown = (try? String(contentsOf: session.notesMarkdown, encoding: .utf8)) ?? ""
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.notesWindowController?.setMarkdown(markdown)
+                    self.notesWindowController?.showWindow(nil)
+                    self.notesWindowController?.window?.makeKeyAndOrderFront(nil)
+                    self.notesWindowController?.window?.orderFrontRegardless()
+                    NSApp.activate(ignoringOtherApps: true)
+                    self.processLastMeetingItem.isEnabled = (self.session != nil)
+                }
             } catch {
                 if let logger {
                     await logger.log(EventLogger.error("pipeline_failed", [
                         "error": String(describing: error)
                     ]))
                 }
-                NotificationCenter.default.post(
-                    name: .meetingVaultPipelineFinished,
-                    object: nil,
-                    userInfo: ["error": String(describing: error)]
-                )
+
+                let errorText = """
+# Processing Failed
+
+\(String(describing: error))
+
+## What to check
+- `config.json` has a valid `whisperModelPath`
+- `config.json` has a valid `geminiApiKey`
+- Network is available for Gemini
+"""
+
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.notesWindowController?.setMarkdown(errorText)
+                    self.notesWindowController?.showWindow(nil)
+                    self.notesWindowController?.window?.makeKeyAndOrderFront(nil)
+                    self.notesWindowController?.window?.orderFrontRegardless()
+                    NSApp.activate(ignoringOtherApps: true)
+                    self.notifier.notify(title: "MeetingVault", body: String(describing: error))
+                    self.processLastMeetingItem.isEnabled = (self.session != nil)
+                }
             }
         }
     }
@@ -292,11 +294,8 @@ final class MeetingVaultApp: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
+        controller.window?.orderFrontRegardless()
     }
-}
-
-extension Notification.Name {
-    static let meetingVaultPipelineFinished = Notification.Name("meetingVault.pipelineFinished")
 }
 
 final class LocalNotifier {
